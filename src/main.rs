@@ -1,6 +1,9 @@
-
-use bevy::prelude::*;
+use bevy::{prelude::*, core::Zeroable};
 use bevy_rapier2d::prelude::*;
+
+// The float value is the player movement speed in 'pixels/second'.
+#[derive(Component)]
+struct Player(f32);
 
 fn main() {
     App::new()
@@ -18,13 +21,7 @@ fn main() {
         .run();
 }
 
-// The float value is the player movement speed in 'pixels/second'.
-#[derive(Component)]
-struct Player(f32);
-
 fn spawn_player(mut commands: Commands, mut rapier_config: ResMut<RapierConfiguration>) {
-    // Set gravity to 0.0 and spawn camera.
-    rapier_config.gravity = Vec2::ZERO;
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d());
@@ -43,31 +40,36 @@ fn spawn_player(mut commands: Commands, mut rapier_config: ResMut<RapierConfigur
             ..Default::default()
         })
         .insert(RigidBody::Dynamic)
-        .insert(Velocity::zero())
+        .insert(ExternalForce::default())
         .insert(Collider::ball(sprite_size / 2.0))
+        .insert(ColliderMassProperties::Density(1.0))
+        .insert(GravityScale(1.0))
         .insert(Player(100.0));
 }
 
 fn player_movement(
     keyboard_input: Res<Input<KeyCode>>,
-    mut player_info: Query<(&Player, &mut Velocity)>,
+    mut player_info: Query<(&Player, &mut ExternalForce)>,
 ) {
-    for (player, mut rb_vels) in player_info.iter_mut() {
-        let up = keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up);
-        let down = keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down);
-        let left = keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left);
-        let right = keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right);
+    for (player, mut rb_forces) in player_info.iter_mut() {
+        let up = keyboard_input.pressed(KeyCode::W)
+            || keyboard_input.pressed(KeyCode::Up)
+            || keyboard_input.pressed(KeyCode::Space);
+        // let y_axis = up as i8;
 
-        let x_axis = -(left as i8) + right as i8;
-        let y_axis = -(down as i8) + up as i8;
-
-        let mut move_delta = Vec2::new(x_axis as f32, y_axis as f32);
-        if move_delta != Vec2::ZERO {
-            move_delta /= move_delta.length();
+        if up {
+            rb_forces.force = Vec2::new(0.0, 100.0);
+        } else {
+            rb_forces.force = Vec2::ZERO;
         }
+        
+        // let mut move_delta = Vec2::new(0.0, y_axis as f32 * 1000.0);
+        // if move_delta != Vec2::ZERO {
+        //     move_delta /= move_delta.length();
+        // }
 
-        // Update the velocity on the rigid_body_component,
-        // the bevy_rapier plugin will update the Sprite transform.
-        rb_vels.linvel = move_delta * player.0;
+        // // Update the velocity on the rigid_body_component,
+        // // the bevy_rapier plugin will update the Sprite transform.
+        // rb_vels.linvel = move_delta * player.0;
     }
 }

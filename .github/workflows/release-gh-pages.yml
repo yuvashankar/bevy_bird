@@ -6,7 +6,7 @@ on:
       - "v*.*.*"
 
 env:
-  PUBLIC_URL: /bevy-bird/
+  PUBLIC_URL: /bevy_bird/
 
 jobs:
   setup:

@@ -6,7 +6,7 @@ on:
       - "v*.*.*"
 
 env:
-  RELEASE_NAME: my_game
+  RELEASE_NAME: bevy_bird
   PUBLIC_URL: /bevy-shell-template/
 
 jobs:

@@ -268,6 +268,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_bird"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_rapier2d",
+ "image",
+ "winit",
+]
+
+[[package]]
 name = "bevy_core"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2308,16 +2318,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "my-game"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_rapier2d",
- "image",
- "winit",
-]
-
-[[package]]
 name = "naga"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2381,8 +2381,8 @@ name = "native-launcher"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_bird",
  "image",
- "my-game",
  "winit",
 ]
 
@@ -3654,7 +3654,7 @@ name = "wasm-launcher"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "my-game",
+ "bevy_bird",
  "stylist",
  "web-sys",
  "yew",

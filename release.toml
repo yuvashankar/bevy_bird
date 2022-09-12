@@ -1,0 +1,6 @@
+consolidate-commits = true
+consolidate-pushes = true
+dev-version = true
+publish = false
+shared-version = true
+tag-prefix = ""

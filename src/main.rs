@@ -10,6 +10,8 @@ pub const IMPULSE: f32 = 25000.0;
 pub const DENSITY: f32 = 50.0;
 pub const GRAVITY_SCALE: f32 = 10.0;
 
+const SPRITE_SIZE: f32 = 100.0;
+
 const PLAYER_COLLISION_GROUP_ID: Group = Group::GROUP_1;
 const WALL_OBSTACLE_GROUP_ID: Group = Group::GROUP_2;
 
@@ -21,9 +23,6 @@ struct Player(f32);
 
 #[derive(Component)]
 struct Obstacle;
-
-#[derive(Component)]
-struct Gap;
 
 struct GameOver {
     game_over: bool,
@@ -123,59 +122,37 @@ fn spawn_ostacles(
         })
         .insert(Obstacle)
         .insert(collision_filters.wall);
-
-    commands
-        .spawn()
-        .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-            400.0, 0.0, 0.0,
-        )))
-        .insert(RigidBody::KinematicVelocityBased)
-        .insert(Collider::cuboid(OBSTACLE_WIDTH, 600.0))
-        .insert(Velocity {
-            linvel: Vec2::new(SCROLL_SPEED, 0.0),
-            angvel: 0.0,
-        })
-        .insert(collision_filters.gap)
-        .insert(Gap);
 }
 
 fn spawn_player(
     mut commands: Commands,
     collision_filters: Res<CollisionFilters>,
 ) {
-    let sprite_size = 100.0;
-
     // Spawn entity with `Player` struct as a component for access in movement query.
     commands
         .spawn()
         .insert_bundle(SpriteBundle {
             sprite: Sprite {
                 color: Color::rgb(0.0, 0.0, 0.0),
-                custom_size: Some(Vec2::new(sprite_size, sprite_size)),
+                custom_size: Some(Vec2::new(SPRITE_SIZE, SPRITE_SIZE)),
                 ..Default::default()
             },
             ..Default::default()
         })
         .insert(RigidBody::Dynamic)
         .insert(ExternalImpulse::default())
-        .insert(Collider::ball(sprite_size / 2.0))
+        .insert(Collider::ball(SPRITE_SIZE / 2.0))
         .insert(ColliderMassProperties::Density(DENSITY))
         .insert(GravityScale(GRAVITY_SCALE))
         .insert(Player(100.0))
-        .insert(ActiveEvents::COLLISION_EVENTS)
+        .insert(ActiveEvents::all())
         .insert(collision_filters.player);
 }
 
-fn display_intersection_info(
-    player_query: Query<Entity, &Player>,
-    gap_query: Query<Entity, &Obstacle>,
-    rapier_context: Res<RapierContext>,
-) {
-    let player_entity = player_query.single();
-    for entity in gap_query.iter() {
-        if rapier_context.intersection_pair(player_entity, entity) == Some(true)
-        {
-            info!("Detected gap intersection");
+fn display_intersection_info(obstacle: Query<&Transform, &Obstacle>) {
+    for transform in obstacle.iter() {
+        if transform.translation.x < (-SPRITE_SIZE) {
+            info!("Passed obstacle");
         }
     }
 }

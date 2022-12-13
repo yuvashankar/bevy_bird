@@ -24,10 +24,15 @@ struct Player(f32);
 #[derive(Component)]
 struct Obstacle;
 
-struct GameOver {
-    game_over: bool,
-}
+#[derive(Component)]
+struct InPlay;
 
+struct GameOver(bool);
+
+#[derive(Component)]
+struct Score(u128);
+
+#[derive(Component)]
 pub struct CollisionFilters {
     pub player: CollisionGroups,
     pub wall: CollisionGroups,
@@ -69,8 +74,9 @@ fn main() {
         .add_system(detect_collision)
         .add_system(detect_game_over)
         .add_system(display_intersection_info)
-        .insert_resource(GameOver { game_over: false })
+        .insert_resource(GameOver(false))
         .insert_resource(CollisionFilters::default())
+        .insert_resource(Score(0))
         .run();
 }
 
@@ -95,6 +101,7 @@ fn spawn_ostacles(
     mut commands: Commands,
     collision_filters: Res<CollisionFilters>,
 ) {
+
     commands
         .spawn()
         .insert_bundle(SpatialBundle::from(Transform::from_xyz(
@@ -107,7 +114,8 @@ fn spawn_ostacles(
             angvel: 0.0,
         })
         .insert(Obstacle)
-        .insert(collision_filters.wall);
+        .insert(collision_filters.wall)
+        .insert(InPlay);
 
     commands
         .spawn()
@@ -149,10 +157,17 @@ fn spawn_player(
         .insert(collision_filters.player);
 }
 
-fn display_intersection_info(obstacle: Query<&Transform, &Obstacle>) {
-    for transform in obstacle.iter() {
+fn display_intersection_info(
+    mut commands: Commands,
+    mut score: ResMut<Score>,
+    obstacle_query: Query<(Entity, &Transform), With<InPlay>>,
+) {
+    for (entity, transform) in &obstacle_query {
         if transform.translation.x < (-SPRITE_SIZE) {
-            info!("Passed obstacle");
+            score.0 += 1;
+            info!("Passed obstacle, score: {}", score.0);
+            
+            commands.entity(entity).remove::<InPlay>();
         }
     }
 }
@@ -162,7 +177,7 @@ fn player_movement(
     game_over: Res<GameOver>,
     mut player_info: Query<&mut ExternalImpulse>,
 ) {
-    if game_over.game_over {
+    if game_over.0 {
         return;
     }
 
@@ -184,12 +199,12 @@ fn detect_collision(
 ) {
     for event in collision_event.iter() {
         info!("Detected collision {:?}", event);
-        game_over.game_over = true;
+        game_over.0 = true;
     }
 }
 
 fn detect_game_over(game_over: Res<GameOver>) {
-    if game_over.game_over {
-        // info!("RIP");
+    if game_over.0 {
+        // end game
     }
 }

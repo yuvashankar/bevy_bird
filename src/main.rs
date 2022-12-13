@@ -66,7 +66,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(spawn_player)
         .add_startup_system(setup_graphics)
-        .add_startup_system(spawn_ostacles)
+        .add_startup_system(spawn_initial_ostacles)
+        .add_system(spawn_timer_obstacles)
         .add_system(player_movement)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(RapierDebugRenderPlugin::default())
@@ -77,7 +78,20 @@ fn main() {
         .insert_resource(GameOver(false))
         .insert_resource(CollisionFilters::default())
         .insert_resource(Score(0))
+        .init_resource::<SpawnNextObstacle>()
         .run();
+}
+
+struct SpawnNextObstacle {
+    event_timer: Timer,
+}
+
+impl Default for SpawnNextObstacle {
+    fn default() -> Self {
+        SpawnNextObstacle {
+            event_timer: Timer::from_seconds(3.0, true),
+        }
+    }
 }
 
 fn setup_graphics(mut commands: Commands) {
@@ -97,11 +111,10 @@ fn destroy_obstacles(
         }
     }
 }
-fn spawn_ostacles(
+fn spawn_initial_ostacles(
     mut commands: Commands,
     collision_filters: Res<CollisionFilters>,
 ) {
-
     commands
         .spawn()
         .insert_bundle(SpatialBundle::from(Transform::from_xyz(
@@ -130,6 +143,48 @@ fn spawn_ostacles(
         })
         .insert(Obstacle)
         .insert(collision_filters.wall);
+}
+
+fn spawn_timer_obstacles(
+    mut commands: Commands,
+    mut timer: ResMut<SpawnNextObstacle>,
+    time: Res<Time>,
+    score: Res<Score>,
+    collision_filters: Res<CollisionFilters>,
+) {
+    // Tick timer
+    timer.event_timer.tick(time.delta());
+
+    if timer.event_timer.just_finished() && score.0 != 0 {
+        commands
+            .spawn()
+            .insert_bundle(SpatialBundle::from(Transform::from_xyz(
+                400.0, 500.0, 0.0,
+            )))
+            .insert(RigidBody::KinematicVelocityBased)
+            .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
+            .insert(Velocity {
+                linvel: Vec2::new(SCROLL_SPEED, 0.0),
+                angvel: 0.0,
+            })
+            .insert(Obstacle)
+            .insert(collision_filters.wall)
+            .insert(InPlay);
+
+        commands
+            .spawn()
+            .insert_bundle(SpatialBundle::from(Transform::from_xyz(
+                400.0, -500.0, 0.0,
+            )))
+            .insert(RigidBody::KinematicVelocityBased)
+            .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
+            .insert(Velocity {
+                linvel: Vec2::new(SCROLL_SPEED, 0.0),
+                angvel: 0.0,
+            })
+            .insert(Obstacle)
+            .insert(collision_filters.wall);
+    }
 }
 
 fn spawn_player(
@@ -166,7 +221,7 @@ fn display_intersection_info(
         if transform.translation.x < (-SPRITE_SIZE) {
             score.0 += 1;
             info!("Passed obstacle, score: {}", score.0);
-            
+
             commands.entity(entity).remove::<InPlay>();
         }
     }

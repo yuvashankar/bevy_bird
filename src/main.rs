@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*};
 use bevy_rapier2d::prelude::*;
 
 pub const HEIGHT: f32 = 1000.0;
@@ -67,6 +67,7 @@ fn main() {
         .add_startup_system(spawn_player)
         .add_startup_system(setup_graphics)
         .add_startup_system(spawn_initial_ostacles)
+        .add_startup_system(setup)
         .add_system(spawn_timer_obstacles)
         .add_system(player_movement)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
@@ -78,7 +79,7 @@ fn main() {
         .insert_resource(GameOver(false))
         .insert_resource(CollisionFilters::default())
         .insert_resource(Score(0))
-        .init_resource::<SpawnNextObstacle>()
+        .init_resource::<SpawnNextObstacle>()        
         .run();
 }
 
@@ -215,6 +216,7 @@ fn spawn_player(
 fn display_intersection_info(
     mut commands: Commands,
     mut score: ResMut<Score>,
+    mut text_query: Query<&mut Text, With<ScoreText>>,
     obstacle_query: Query<(Entity, &Transform), With<InPlay>>,
 ) {
     for (entity, transform) in &obstacle_query {
@@ -224,6 +226,10 @@ fn display_intersection_info(
 
             commands.entity(entity).remove::<InPlay>();
         }
+    }
+
+    for mut text in &mut text_query {
+        text.sections[1].value = format!("{}", score.0);
     }
 }
 
@@ -262,4 +268,37 @@ fn detect_game_over(game_over: Res<GameOver>) {
     if game_over.0 {
         // end game
     }
+}
+
+
+#[derive(Component)]
+struct ScoreText;
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+
+    // Text with multiple sections
+    commands
+        .spawn_bundle(
+            // Create a TextBundle that has a Text with a list of sections.
+            TextBundle::from_sections([
+                TextSection::new(
+                    "Score: ",
+                    TextStyle {
+                        font: asset_server.load("fonts\\FiraSans-Bold.ttf"),
+                        font_size: 60.0,
+                        color: Color::WHITE,
+                    },
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts\\FiraMono-Medium.ttf"),
+                    font_size: 60.0,
+                    color: Color::GOLD,
+                }),
+            ])
+            .with_style(Style {
+                align_self: AlignSelf::FlexEnd,
+                ..default()
+            }),
+        )
+        .insert(ScoreText);
+
 }

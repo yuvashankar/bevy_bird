@@ -1,8 +1,10 @@
 use bevy::{prelude::*};
 use bevy_rapier2d::prelude::*;
+use std::path::Path;
+use rand::{thread_rng, Rng};
 
 pub const HEIGHT: f32 = 1000.0;
-pub const WIDTH: f32 = 1000.0;
+pub const WIDTH: f32 = 500.0;
 
 pub const OBSTACLE_WIDTH: f32 = 50.0;
 pub const SCROLL_SPEED: f32 = -100.0;
@@ -156,11 +158,15 @@ fn spawn_timer_obstacles(
     // Tick timer
     timer.event_timer.tick(time.delta());
 
+    let rng_val = rand::thread_rng().gen_range(-1.0_f32..1.0_f32);
+
+    let offset = 150.0 * rng_val;
+
     if timer.event_timer.just_finished() && score.0 != 0 {
         commands
             .spawn()
             .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-                400.0, 500.0, 0.0,
+                400.0, 500.0 + offset, 0.0,
             )))
             .insert(RigidBody::KinematicVelocityBased)
             .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
@@ -175,7 +181,7 @@ fn spawn_timer_obstacles(
         commands
             .spawn()
             .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-                400.0, -500.0, 0.0,
+                400.0, -500.0 + offset, 0.0,
             )))
             .insert(RigidBody::KinematicVelocityBased)
             .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
@@ -216,9 +222,14 @@ fn spawn_player(
 fn display_intersection_info(
     mut commands: Commands,
     mut score: ResMut<Score>,
+    game_over: Res<GameOver>,
     mut text_query: Query<&mut Text, With<ScoreText>>,
     obstacle_query: Query<(Entity, &Transform), With<InPlay>>,
 ) {
+    if game_over.0 {
+        return;
+    }
+
     for (entity, transform) in &obstacle_query {
         if transform.translation.x < (-SPRITE_SIZE) {
             score.0 += 1;
@@ -275,6 +286,7 @@ fn detect_game_over(game_over: Res<GameOver>) {
 struct ScoreText;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
+    let fonts_path = Path::new("fonts");
     // Text with multiple sections
     commands
         .spawn_bundle(
@@ -283,13 +295,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection::new(
                     "Score: ",
                     TextStyle {
-                        font: asset_server.load("fonts\\FiraSans-Bold.ttf"),
+                        font: asset_server.load(fonts_path.join("FiraSans-Bold.ttf")),
                         font_size: 60.0,
                         color: Color::WHITE,
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts\\FiraMono-Medium.ttf"),
+                    font: asset_server.load(fonts_path.join("FiraMono-Medium.ttf")),
                     font_size: 60.0,
                     color: Color::GOLD,
                 }),

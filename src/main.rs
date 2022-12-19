@@ -1,7 +1,8 @@
-use bevy::{prelude::*};
+use bevy::input::ButtonState;
+use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use bevy_rapier2d::prelude::*;
-use std::path::Path;
 use rand::{thread_rng, Rng};
+use std::path::Path;
 
 pub const HEIGHT: f32 = 1000.0;
 pub const WIDTH: f32 = 500.0;
@@ -28,7 +29,6 @@ struct Obstacle;
 
 #[derive(Component)]
 struct InPlay;
-
 struct GameOver(bool);
 
 #[derive(Component)]
@@ -57,6 +57,12 @@ impl Default for CollisionFilters {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum AppState {
+    Menu,
+    InGame,
+}
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -66,22 +72,48 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(spawn_player)
         .add_startup_system(setup_graphics)
-        .add_startup_system(spawn_initial_ostacles)
         .add_startup_system(setup)
-        .add_system(spawn_timer_obstacles)
-        .add_system(player_movement)
+        .add_state(AppState::Menu)
+        .add_system_set(
+            SystemSet::on_update(AppState::Menu).with_system(start_menu),
+        )
+        .add_system_set(
+            SystemSet::on_enter(AppState::InGame).with_system(spawn_player),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame).with_system(player_movement),
+        )
+        .add_system_set(
+            SystemSet::on_enter(AppState::InGame)
+                .with_system(spawn_initial_ostacles),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(spawn_timer_obstacles),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(destroy_obstacles),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(detect_collision),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(detect_game_over),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(display_intersection_info),
+        )
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(RapierDebugRenderPlugin::default())
-        .add_system(destroy_obstacles)
-        .add_system(detect_collision)
-        .add_system(detect_game_over)
-        .add_system(display_intersection_info)
         .insert_resource(GameOver(false))
         .insert_resource(CollisionFilters::default())
         .insert_resource(Score(0))
-        .init_resource::<SpawnNextObstacle>()        
+        .init_resource::<SpawnNextObstacle>()
         .run();
 }
 
@@ -93,6 +125,28 @@ impl Default for SpawnNextObstacle {
     fn default() -> Self {
         SpawnNextObstacle {
             event_timer: Timer::from_seconds(3.0, true),
+        }
+    }
+}
+
+#[derive(Component)]
+struct ActionKey(KeyCode);
+fn start_menu(
+    mut cmds: Commands,
+    mut state: ResMut<State<AppState>>,
+    mut key_evr: EventReader<KeyboardInput>,
+) {
+    for ev in &mut key_evr.iter() {
+        dbg!(ev);
+        match ev.state {
+            ButtonState::Pressed => {}
+            ButtonState::Released => {
+                info!("Key release: {:?} ({})", ev.key_code, ev.scan_code);
+                if let Some(key_code) = ev.key_code {
+                    state.set(AppState::InGame).unwrap();
+                    cmds.insert_resource(ActionKey(key_code));
+                }
+            }
         }
     }
 }
@@ -166,7 +220,9 @@ fn spawn_timer_obstacles(
         commands
             .spawn()
             .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-                400.0, 500.0 + offset, 0.0,
+                400.0,
+                500.0 + offset,
+                0.0,
             )))
             .insert(RigidBody::KinematicVelocityBased)
             .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
@@ -181,7 +237,9 @@ fn spawn_timer_obstacles(
         commands
             .spawn()
             .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-                400.0, -500.0 + offset, 0.0,
+                400.0,
+                -500.0 + offset,
+                0.0,
             )))
             .insert(RigidBody::KinematicVelocityBased)
             .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
@@ -246,6 +304,7 @@ fn display_intersection_info(
 
 fn player_movement(
     keyboard_input: Res<Input<KeyCode>>,
+    action_key: Res<ActionKey>,
     game_over: Res<GameOver>,
     mut player_info: Query<&mut ExternalImpulse>,
 ) {
@@ -253,15 +312,18 @@ fn player_movement(
         return;
     }
 
-    let mut rb_impulse = player_info.single_mut();
-    let up = keyboard_input.just_pressed(KeyCode::W)
-        || keyboard_input.just_pressed(KeyCode::Up)
-        || keyboard_input.just_pressed(KeyCode::Space);
+    // let mut rb_impulse = player_info.single_mut();
+    for mut player in &mut player_info {
+        let up = keyboard_input.just_pressed(KeyCode::W)
+            || keyboard_input.just_pressed(KeyCode::Up)
+            || keyboard_input.just_pressed(KeyCode::Space)
+            || keyboard_input.just_pressed(action_key.0);
 
-    if up {
-        rb_impulse.impulse = Vec2::new(0.0, IMPULSE);
-    } else {
-        rb_impulse.impulse = Vec2::ZERO;
+        if up {
+            player.impulse = Vec2::new(0.0, IMPULSE);
+        } else {
+            player.impulse = Vec2::ZERO;
+        }
     }
 }
 
@@ -281,11 +343,9 @@ fn detect_game_over(game_over: Res<GameOver>) {
     }
 }
 
-
 #[derive(Component)]
 struct ScoreText;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-
     let fonts_path = Path::new("fonts");
     // Text with multiple sections
     commands
@@ -295,13 +355,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection::new(
                     "Score: ",
                     TextStyle {
-                        font: asset_server.load(fonts_path.join("FiraSans-Bold.ttf")),
+                        font: asset_server
+                            .load(fonts_path.join("FiraSans-Bold.ttf")),
                         font_size: 60.0,
                         color: Color::WHITE,
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load(fonts_path.join("FiraMono-Medium.ttf")),
+                    font: asset_server
+                        .load(fonts_path.join("FiraMono-Medium.ttf")),
                     font_size: 60.0,
                     color: Color::GOLD,
                 }),
@@ -312,5 +374,4 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         )
         .insert(ScoreText);
-
 }

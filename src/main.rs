@@ -200,6 +200,29 @@ fn spawn_initial_ostacles(
         })
         .insert(Obstacle)
         .insert(collision_filters.wall);
+
+        // Floor Collider
+        commands
+        .spawn()
+        .insert_bundle(SpatialBundle::from(Transform::from_xyz(
+            0.0, -800.0, 0.0,
+        )))
+        .insert(RigidBody::KinematicVelocityBased)
+        .insert(Collider::cuboid(600.0, 100.0))
+        .insert(Obstacle)
+        .insert(collision_filters.wall);
+
+        // Ceiling Collider
+        commands
+        .spawn()
+        .insert_bundle(SpatialBundle::from(Transform::from_xyz(
+            0.0, 800.0, 0.0,
+        )))
+        .insert(RigidBody::KinematicVelocityBased)
+        .insert(Collider::cuboid(600.0, 100.0 ))
+        .insert(Obstacle)
+        .insert(collision_filters.wall);
+
 }
 
 fn spawn_timer_obstacles(
@@ -337,9 +360,34 @@ fn detect_collision(
     }
 }
 
-fn detect_game_over(game_over: Res<GameOver>) {
+fn detect_game_over(mut commands: Commands, game_over: Res<GameOver>, asset_server: Res<AssetServer>) {
     if game_over.0 {
-        // end game
+        let fonts_path = Path::new("fonts");
+        commands
+        .spawn_bundle(
+            // Create a TextBundle that has a Text with a single section.
+            TextBundle::from_section(
+                // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                "Oof, RIP.",
+                TextStyle {
+                    font: asset_server.load(fonts_path.join("FiraSans-Bold.ttf")),
+                    font_size: 100.0,
+                    color: Color::WHITE,
+                },
+            ) // Set the alignment of the Text
+            .with_text_alignment(TextAlignment::CENTER)
+            // Set the style of the TextBundle itself.
+            .with_style(Style {
+                align_self: AlignSelf::FlexEnd,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(5.0),
+                    right: Val::Px(15.0),
+                    ..default()
+                },
+                ..default()
+            }),
+        );
     }
 }
 

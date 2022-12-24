@@ -1,5 +1,7 @@
 use bevy::input::ButtonState;
+use bevy::text::Text2dBounds;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use bevy_rapier2d::parry::shape::HeightField;
 use bevy_rapier2d::prelude::*;
 use rand::{thread_rng, Rng};
 use std::path::Path;
@@ -15,11 +17,6 @@ pub const GRAVITY_SCALE: f32 = 10.0;
 
 const SPRITE_SIZE: f32 = 100.0;
 
-const PLAYER_COLLISION_GROUP_ID: Group = Group::GROUP_1;
-const WALL_OBSTACLE_GROUP_ID: Group = Group::GROUP_2;
-
-const GAP_GROUP_ID: Group = Group::GROUP_3;
-
 // The float value is the player movement speed in 'pixels/second'.
 #[derive(Component)]
 struct Player(f32);
@@ -33,29 +30,6 @@ struct GameOver(bool);
 
 #[derive(Component)]
 struct Score(u128);
-
-#[derive(Component)]
-pub struct CollisionFilters {
-    pub player: CollisionGroups,
-    pub wall: CollisionGroups,
-    pub gap: CollisionGroups,
-}
-
-impl Default for CollisionFilters {
-    fn default() -> Self {
-        let player = CollisionGroups::new(
-            PLAYER_COLLISION_GROUP_ID,
-            WALL_OBSTACLE_GROUP_ID,
-        );
-        let wall = CollisionGroups::new(
-            WALL_OBSTACLE_GROUP_ID,
-            PLAYER_COLLISION_GROUP_ID,
-        );
-        let gap = CollisionGroups::new(GAP_GROUP_ID, PLAYER_COLLISION_GROUP_ID);
-
-        Self { player, wall, gap }
-    }
-}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
@@ -111,7 +85,6 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(RapierDebugRenderPlugin::default())
         .insert_resource(GameOver(false))
-        .insert_resource(CollisionFilters::default())
         .insert_resource(Score(0))
         .init_resource::<SpawnNextObstacle>()
         .run();
@@ -151,6 +124,7 @@ fn start_menu(
     }
 }
 
+
 fn setup_graphics(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 20.0, 0.0),
@@ -168,10 +142,7 @@ fn destroy_obstacles(
         }
     }
 }
-fn spawn_initial_ostacles(
-    mut commands: Commands,
-    collision_filters: Res<CollisionFilters>,
-) {
+fn spawn_initial_ostacles(mut commands: Commands) {
     commands
         .spawn()
         .insert_bundle(SpatialBundle::from(Transform::from_xyz(
@@ -184,7 +155,6 @@ fn spawn_initial_ostacles(
             angvel: 0.0,
         })
         .insert(Obstacle)
-        .insert(collision_filters.wall)
         .insert(InPlay);
 
     commands
@@ -198,31 +168,27 @@ fn spawn_initial_ostacles(
             linvel: Vec2::new(SCROLL_SPEED, 0.0),
             angvel: 0.0,
         })
-        .insert(Obstacle)
-        .insert(collision_filters.wall);
+        .insert(Obstacle);
 
-        // Floor Collider
-        commands
+    // Floor Collider
+    commands
         .spawn()
         .insert_bundle(SpatialBundle::from(Transform::from_xyz(
             0.0, -800.0, 0.0,
         )))
         .insert(RigidBody::KinematicVelocityBased)
         .insert(Collider::cuboid(600.0, 100.0))
-        .insert(Obstacle)
-        .insert(collision_filters.wall);
+        .insert(Obstacle);
 
-        // Ceiling Collider
-        commands
+    // Ceiling Collider
+    commands
         .spawn()
         .insert_bundle(SpatialBundle::from(Transform::from_xyz(
             0.0, 800.0, 0.0,
         )))
         .insert(RigidBody::KinematicVelocityBased)
-        .insert(Collider::cuboid(600.0, 100.0 ))
-        .insert(Obstacle)
-        .insert(collision_filters.wall);
-
+        .insert(Collider::cuboid(600.0, 100.0))
+        .insert(Obstacle);
 }
 
 fn spawn_timer_obstacles(
@@ -230,7 +196,6 @@ fn spawn_timer_obstacles(
     mut timer: ResMut<SpawnNextObstacle>,
     time: Res<Time>,
     score: Res<Score>,
-    collision_filters: Res<CollisionFilters>,
 ) {
     // Tick timer
     timer.event_timer.tick(time.delta());
@@ -254,7 +219,6 @@ fn spawn_timer_obstacles(
                 angvel: 0.0,
             })
             .insert(Obstacle)
-            .insert(collision_filters.wall)
             .insert(InPlay);
 
         commands
@@ -270,15 +234,11 @@ fn spawn_timer_obstacles(
                 linvel: Vec2::new(SCROLL_SPEED, 0.0),
                 angvel: 0.0,
             })
-            .insert(Obstacle)
-            .insert(collision_filters.wall);
+            .insert(Obstacle);
     }
 }
 
-fn spawn_player(
-    mut commands: Commands,
-    collision_filters: Res<CollisionFilters>,
-) {
+fn spawn_player(mut commands: Commands, text_query: Query<Entity, With<WelcomeText>>) {
     // Spawn entity with `Player` struct as a component for access in movement query.
     commands
         .spawn()
@@ -296,8 +256,11 @@ fn spawn_player(
         .insert(ColliderMassProperties::Density(DENSITY))
         .insert(GravityScale(GRAVITY_SCALE))
         .insert(Player(100.0))
-        .insert(ActiveEvents::all())
-        .insert(collision_filters.player);
+        .insert(ActiveEvents::all());
+
+        for entity in &text_query {
+            commands.entity(entity).despawn();
+        }
 }
 
 fn display_intersection_info(
@@ -360,17 +323,21 @@ fn detect_collision(
     }
 }
 
-fn detect_game_over(mut commands: Commands, game_over: Res<GameOver>, asset_server: Res<AssetServer>) {
+fn detect_game_over(
+    mut commands: Commands,
+    game_over: Res<GameOver>,
+    asset_server: Res<AssetServer>,
+) {
     if game_over.0 {
         let fonts_path = Path::new("fonts");
-        commands
-        .spawn_bundle(
+        commands.spawn_bundle(
             // Create a TextBundle that has a Text with a single section.
             TextBundle::from_section(
                 // Accepts a `String` or any type that converts into a `String`, such as `&str`
                 "Oof, RIP.",
                 TextStyle {
-                    font: asset_server.load(fonts_path.join("FiraSans-Bold.ttf")),
+                    font: asset_server
+                        .load(fonts_path.join("FiraSans-Bold.ttf")),
                     font_size: 100.0,
                     color: Color::WHITE,
                 },
@@ -393,9 +360,11 @@ fn detect_game_over(mut commands: Commands, game_over: Res<GameOver>, asset_serv
 
 #[derive(Component)]
 struct ScoreText;
+#[derive(Component)]
+struct WelcomeText;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let fonts_path = Path::new("fonts");
-    // Text with multiple sections
+    // Score Text
     commands
         .spawn_bundle(
             // Create a TextBundle that has a Text with a list of sections.
@@ -422,4 +391,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         )
         .insert(ScoreText);
+
+        // Start Text
+        commands.spawn_bundle(
+            TextBundle::from_section(
+                "Choose your \naction button!",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 80.0,
+                    color: Color::WHITE,
+                },
+            ) // Set the alignment of the Text
+            .with_text_alignment(TextAlignment::TOP_CENTER)
+            .with_style(Style {
+                position_type: PositionType::Absolute,  
+                position: UiRect {
+                    bottom: Val::Px(440.0),
+                    right: Val::Px(25.0 + 12.5),
+                    ..default()
+                },
+                ..default()
+            })).insert(WelcomeText);
 }
+

@@ -1,4 +1,5 @@
 use bevy::input::ButtonState;
+use bevy::render::texture;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
@@ -46,6 +47,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_graphics)
         .add_startup_system(setup)
+        .add_system(infinite_scroll)
         .add_state(AppState::Menu)
         .add_system_set(
             SystemSet::on_update(AppState::Menu).with_system(start_menu),
@@ -80,8 +82,10 @@ fn main() {
             SystemSet::on_update(AppState::InGame)
                 .with_system(display_intersection_info),
         )
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
+        // Debug
         .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
+        // Resources
         .insert_resource(GameOver(false))
         .insert_resource(Score(0))
         .init_resource::<SpawnNextObstacle>()
@@ -108,11 +112,10 @@ fn start_menu(
     mut key_evr: EventReader<KeyboardInput>,
 ) {
     for ev in &mut key_evr.iter() {
-        dbg!(ev);
         match ev.state {
             ButtonState::Pressed => {}
             ButtonState::Released => {
-                info!("Key release: {:?} ({})", ev.key_code, ev.scan_code);
+                info!("Action key is: : {:?} ({})", ev.key_code, ev.scan_code);
                 if let Some(key_code) = ev.key_code {
                     state.set(AppState::InGame).unwrap();
                     cmds.insert_resource(ActionKey(key_code));
@@ -128,34 +131,96 @@ struct Background;
 fn setup_graphics(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture_path = Path::new("textures");
     commands.spawn_bundle(Camera2dBundle {
-        transform: Transform::from_xyz(0.0, 20.0, 0.0),
+        transform: Transform::from_xyz(0.0, 20.0, 50.0),
         ..default()
     });
 
     // Spawn Background
     commands
         .spawn_bundle(SpriteBundle {
+            // transform: Transform::from_xyz(0.0, 0.0, 0.0),
             sprite: Sprite {
-                custom_size: Some(Vec2::new(6.0 * WIDTH, 1.2 * HEIGHT)),
+                custom_size: Some(Vec2::new(6.8 * WIDTH, 1.2 * HEIGHT)),
                 ..default()
             },
-            texture: asset_server.load(texture_path.join("background.png")),
+            texture: asset_server.load(texture_path.join("background2.png")),
             ..default()
         })
         .insert(RigidBody::KinematicVelocityBased)
         .insert(Velocity {
-            linvel: Vec2::new(SCROLL_SPEED * 0.1, 0.0),
+            linvel: Vec2::new(0.1 * SCROLL_SPEED, 0.0),
+            ..default()
+        })
+        .insert(Background);
+
+    // Spawn Background
+    commands
+        .spawn_bundle(SpriteBundle {
+            transform: Transform::from_xyz(6.8 * WIDTH, 0.0, 0.0),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(6.8 * WIDTH, 1.2 * HEIGHT)),
+                ..default()
+            },
+            texture: asset_server.load(texture_path.join("background2.png")),
+            ..default()
+        })
+        .insert(RigidBody::KinematicVelocityBased)
+        .insert(Velocity {
+            linvel: Vec2::new(0.1 * SCROLL_SPEED, 0.0),
             ..default()
         })
         .insert(Background);
 }
 
-fn spawn_initial_ostacles(mut commands: Commands) {
+fn infinite_scroll(
+    mut cmds: Commands,
+    background_query: Query<(Entity, &Transform), With<Background>>,
+    asset_server: Res<AssetServer>,
+) {
+    for (entity, transform) in &background_query {
+        if transform.translation.x < -6.8 * WIDTH {
+            let texture_path = Path::new("textures");
+            info!("Despawning background text");
+            cmds.entity(entity).despawn();
+            info!("Spawning Next background");
+            // Spawn Background
+            cmds.spawn_bundle(SpriteBundle {
+                transform: Transform::from_xyz(6.8 * WIDTH - 2.0, 0.0, 0.0),
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(6.8 * WIDTH, 1.2 * HEIGHT)),
+                    ..default()
+                },
+                texture: asset_server
+                    .load(texture_path.join("background2.png")),
+                ..default()
+            })
+            .insert(RigidBody::KinematicVelocityBased)
+            .insert(Velocity {
+                linvel: Vec2::new(0.1 * SCROLL_SPEED, 0.0),
+                ..default()
+            })
+            .insert(Background);
+        }
+    }
+}
+
+fn spawn_initial_ostacles(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let texture_path = Path::new("textures");
     commands
         .spawn()
-        .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-            400.0, 500.0, 0.0,
-        )))
+        .insert_bundle(SpriteBundle {
+            sprite: Sprite {
+                flip_y: true,
+                custom_size: Some(Vec2::new(OBSTACLE_WIDTH, 300.0)),
+                ..default()
+            },
+            transform: Transform::from_xyz(400.0, 500.0, 0.0),
+            texture: asset_server.load(texture_path.join("obstacle3.png")),
+            ..default()
+        })
         .insert(RigidBody::KinematicVelocityBased)
         .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
         .insert(Velocity {
@@ -280,7 +345,7 @@ fn spawn_player(
         .insert(ColliderMassProperties::Density(DENSITY))
         .insert(GravityScale(GRAVITY_SCALE))
         .insert(Player(100.0))
-        .insert(ActiveEvents::all());
+        .insert(ActiveCollisionTypes::DYNAMIC_KINEMATIC);
 
     for entity in &text_query {
         commands.entity(entity).despawn();

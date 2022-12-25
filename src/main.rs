@@ -1,9 +1,7 @@
 use bevy::input::ButtonState;
-use bevy::text::Text2dBounds;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use bevy_rapier2d::parry::shape::HeightField;
 use bevy_rapier2d::prelude::*;
-use rand::{thread_rng, Rng};
+use rand::Rng;
 use std::path::Path;
 
 pub const HEIGHT: f32 = 1000.0;
@@ -124,24 +122,34 @@ fn start_menu(
     }
 }
 
+#[derive(Component)]
+struct Background;
 
-fn setup_graphics(mut commands: Commands) {
+fn setup_graphics(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let texture_path = Path::new("textures");
     commands.spawn_bundle(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 20.0, 0.0),
         ..default()
     });
+
+    // Spawn Background
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(6.0 * WIDTH, 1.2 * HEIGHT)),
+                ..default()
+            },
+            texture: asset_server.load(texture_path.join("background.png")),
+            ..default()
+        })
+        .insert(RigidBody::KinematicVelocityBased)
+        .insert(Velocity {
+            linvel: Vec2::new(SCROLL_SPEED * 0.1, 0.0),
+            ..default()
+        })
+        .insert(Background);
 }
 
-fn destroy_obstacles(
-    mut commands: Commands,
-    q: Query<(Entity, &Obstacle, &Transform)>,
-) {
-    for (e, _o, t) in q.iter() {
-        if t.translation.x < -(WIDTH - 100.0) {
-            commands.entity(e).despawn();
-        }
-    }
-}
 fn spawn_initial_ostacles(mut commands: Commands) {
     commands
         .spawn()
@@ -191,6 +199,17 @@ fn spawn_initial_ostacles(mut commands: Commands) {
         .insert(Obstacle);
 }
 
+fn destroy_obstacles(
+    mut commands: Commands,
+    q: Query<(Entity, &Obstacle, &Transform)>,
+) {
+    for (e, _o, t) in q.iter() {
+        if t.translation.x < -(WIDTH - 100.0) {
+            commands.entity(e).despawn();
+        }
+    }
+}
+
 fn spawn_timer_obstacles(
     mut commands: Commands,
     mut timer: ResMut<SpawnNextObstacle>,
@@ -238,13 +257,18 @@ fn spawn_timer_obstacles(
     }
 }
 
-fn spawn_player(mut commands: Commands, text_query: Query<Entity, With<WelcomeText>>) {
+fn spawn_player(
+    mut commands: Commands,
+    text_query: Query<Entity, With<WelcomeText>>,
+    asset_server: Res<AssetServer>,
+) {
+    let texture_path = Path::new("textures");
     // Spawn entity with `Player` struct as a component for access in movement query.
     commands
         .spawn()
         .insert_bundle(SpriteBundle {
+            texture: asset_server.load(texture_path.join("bevy.png")),
             sprite: Sprite {
-                color: Color::rgb(0.0, 0.0, 0.0),
                 custom_size: Some(Vec2::new(SPRITE_SIZE, SPRITE_SIZE)),
                 ..Default::default()
             },
@@ -258,9 +282,9 @@ fn spawn_player(mut commands: Commands, text_query: Query<Entity, With<WelcomeTe
         .insert(Player(100.0))
         .insert(ActiveEvents::all());
 
-        for entity in &text_query {
-            commands.entity(entity).despawn();
-        }
+    for entity in &text_query {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn display_intersection_info(
@@ -392,8 +416,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         )
         .insert(ScoreText);
 
-        // Start Text
-        commands.spawn_bundle(
+    // Start Text
+    commands
+        .spawn_bundle(
             TextBundle::from_section(
                 "Choose your \naction button!",
                 TextStyle {
@@ -404,13 +429,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ) // Set the alignment of the Text
             .with_text_alignment(TextAlignment::TOP_CENTER)
             .with_style(Style {
-                position_type: PositionType::Absolute,  
+                position_type: PositionType::Absolute,
                 position: UiRect {
                     bottom: Val::Px(440.0),
                     right: Val::Px(25.0 + 12.5),
                     ..default()
                 },
                 ..default()
-            })).insert(WelcomeText);
+            }),
+        )
+        .insert(WelcomeText);
 }
-

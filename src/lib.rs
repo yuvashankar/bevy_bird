@@ -11,8 +11,6 @@ pub const DENSITY: f32 = 50.0;
 pub const GRAVITY_SCALE: f32 = 10.0;
 // The float value is the player movement speed in 'pixels/second'.
 
-pub const LAUNCHER_TITLE: &str = "Bevy Shell - Template";
-
 pub fn app() -> App {
     let mut app = App::new();
     app.insert_resource(WindowDescriptor {
@@ -39,7 +37,7 @@ struct Player(f32);
 #[derive(Component)]
 struct Obstacle;
 
-fn setup_graphics(mut commands: Commands) {
+fn setup_graphics(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 20.0, 0.0),
         ..default()
@@ -84,7 +82,7 @@ fn spawn_ostacles(mut commands: Commands) {
         .insert(Obstacle);
 }
 
-fn spawn_player(mut commands: Commands) {
+fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn();
 
     let sprite_size = 100.0;
@@ -98,7 +96,7 @@ fn spawn_player(mut commands: Commands) {
                 custom_size: Some(Vec2::new(sprite_size, sprite_size)),
                 ..Default::default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(RigidBody::Dynamic)
         .insert(ExternalImpulse::default())

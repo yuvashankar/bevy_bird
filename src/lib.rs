@@ -50,7 +50,7 @@ fn destroy_obstacles(
 ) {
     for (e, o, t) in q.iter() {
         if t.translation.x < -(WIDTH - 100.0) {
-            commands.entity(e).despawn();
+            commands.entity(e).despawn_recursive();
         }
     }
 }

@@ -1,5 +1,6 @@
 use bevy::input::ButtonState;
 use bevy::render::texture;
+use bevy::sprite::Anchor;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
@@ -143,7 +144,7 @@ fn setup_graphics(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(6.8 * WIDTH, 1.2 * HEIGHT)),
                 ..default()
             },
-            texture: asset_server.load(texture_path.join("background2.png")),
+            texture: asset_server.load(texture_path.join("background.png")),
             ..default()
         })
         .insert(RigidBody::KinematicVelocityBased)
@@ -161,7 +162,7 @@ fn setup_graphics(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(6.8 * WIDTH, 1.2 * HEIGHT)),
                 ..default()
             },
-            texture: asset_server.load(texture_path.join("background2.png")),
+            texture: asset_server.load(texture_path.join("background.png")),
             ..default()
         })
         .insert(RigidBody::KinematicVelocityBased)
@@ -190,8 +191,7 @@ fn infinite_scroll(
                     custom_size: Some(Vec2::new(6.8 * WIDTH, 1.2 * HEIGHT)),
                     ..default()
                 },
-                texture: asset_server
-                    .load(texture_path.join("background2.png")),
+                texture: asset_server.load(texture_path.join("background.png")),
                 ..default()
             })
             .insert(RigidBody::KinematicVelocityBased)
@@ -209,17 +209,37 @@ fn spawn_initial_ostacles(
     asset_server: Res<AssetServer>,
 ) {
     let texture_path = Path::new("textures");
+
+    // Top Obstacle
     commands
         .spawn()
         .insert_bundle(SpriteBundle {
             sprite: Sprite {
                 flip_y: true,
-                custom_size: Some(Vec2::new(OBSTACLE_WIDTH, 300.0)),
+                custom_size: Some(Vec2::new(OBSTACLE_WIDTH * 2.0, 300.0)),
+                anchor: Anchor::TopCenter,
                 ..default()
             },
+            // Top Collider Transform
             transform: Transform::from_xyz(400.0, 500.0, 0.0),
             texture: asset_server.load(texture_path.join("obstacle3.png")),
             ..default()
+        })
+        // Top Obstacle Extension
+        .with_children(|children| {
+            children.spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    flip_y: true,
+                    custom_size: Some(Vec2::new(
+                        OBSTACLE_WIDTH * 1.6,
+                        OBSTACLE_WIDTH * 3.2,
+                    )),
+                    ..default()
+                },
+                texture: asset_server.load(texture_path.join("obstacle2.png")),
+                transform: Transform::from_xyz(0.0, 70.0, 0.0),
+                ..default()
+            });
         })
         .insert(RigidBody::KinematicVelocityBased)
         .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
@@ -230,11 +250,37 @@ fn spawn_initial_ostacles(
         .insert(Obstacle)
         .insert(InPlay);
 
+    // Bottom Obstacle
     commands
         .spawn()
-        .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-            400.0, -500.0, 0.0,
-        )))
+        .insert_bundle(SpriteBundle {
+            sprite: Sprite {
+                //  flip_y: true,
+                custom_size: Some(Vec2::new(OBSTACLE_WIDTH * 2.0, 300.0)),
+                anchor: Anchor::BottomCenter,
+                ..default()
+            },
+            // Top Collider Transform
+            transform: Transform::from_xyz(400.0, -500.0, 0.0),
+            texture: asset_server.load(texture_path.join("obstacle3.png")),
+            ..default()
+        })
+        // Top Obstacle Extension
+        .with_children(|children| {
+            children.spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    flip_y: true,
+                    custom_size: Some(Vec2::new(
+                        OBSTACLE_WIDTH * 1.6,
+                        OBSTACLE_WIDTH * 3.2,
+                    )),
+                    ..default()
+                },
+                texture: asset_server.load(texture_path.join("obstacle2.png")),
+                transform: Transform::from_xyz(0.0, 70.0, 0.0),
+                ..default()
+            });
+        })
         .insert(RigidBody::KinematicVelocityBased)
         .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
         .insert(Velocity {
@@ -251,7 +297,7 @@ fn spawn_initial_ostacles(
         )))
         .insert(RigidBody::KinematicVelocityBased)
         .insert(Collider::cuboid(600.0, 100.0))
-        .insert(Obstacle);
+        .insert(Obstacle);;
 
     // Ceiling Collider
     commands
@@ -270,7 +316,7 @@ fn destroy_obstacles(
 ) {
     for (e, _o, t) in q.iter() {
         if t.translation.x < -(WIDTH - 100.0) {
-            commands.entity(e).despawn();
+            commands.entity(e).despawn_recursive();
         }
     }
 }
@@ -279,8 +325,10 @@ fn spawn_timer_obstacles(
     mut commands: Commands,
     mut timer: ResMut<SpawnNextObstacle>,
     time: Res<Time>,
+    asset_server: Res<AssetServer>,
     score: Res<Score>,
 ) {
+    let texture_path = Path::new("textures");
     // Tick timer
     timer.event_timer.tick(time.delta());
 
@@ -289,36 +337,84 @@ fn spawn_timer_obstacles(
     let offset = 150.0 * rng_val;
 
     if timer.event_timer.just_finished() && score.0 != 0 {
-        commands
-            .spawn()
-            .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-                400.0,
-                500.0 + offset,
-                0.0,
-            )))
-            .insert(RigidBody::KinematicVelocityBased)
-            .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
-            .insert(Velocity {
-                linvel: Vec2::new(SCROLL_SPEED, 0.0),
-                angvel: 0.0,
-            })
-            .insert(Obstacle)
-            .insert(InPlay);
+    // Top Obstacle
+    commands
+        .spawn()
+        .insert_bundle(SpriteBundle {
+            sprite: Sprite {
+                flip_y: true,
+                custom_size: Some(Vec2::new(OBSTACLE_WIDTH * 2.0, 300.0)),
+                anchor: Anchor::TopCenter,
+                ..default()
+            },
+            // Top Collider Transform
+            transform: Transform::from_xyz(400.0, 500.0 + offset, 0.0),
+            texture: asset_server.load(texture_path.join("obstacle3.png")),
+            ..default()
+        })
+        // Top Obstacle Extension
+        .with_children(|children| {
+            children.spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    flip_y: true,
+                    custom_size: Some(Vec2::new(
+                        OBSTACLE_WIDTH * 1.6,
+                        OBSTACLE_WIDTH * 3.2,
+                    )),
+                    ..default()
+                },
+                texture: asset_server.load(texture_path.join("obstacle2.png")),
+                transform: Transform::from_xyz(0.0, 70.0, 0.0),
+                ..default()
+            });
+        })
+        .insert(RigidBody::KinematicVelocityBased)
+        .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
+        .insert(Velocity {
+            linvel: Vec2::new(SCROLL_SPEED, 0.0),
+            angvel: 0.0,
+        })
+        .insert(Obstacle)
+        .insert(InPlay);
 
-        commands
-            .spawn()
-            .insert_bundle(SpatialBundle::from(Transform::from_xyz(
-                400.0,
-                -500.0 + offset,
-                0.0,
-            )))
-            .insert(RigidBody::KinematicVelocityBased)
-            .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
-            .insert(Velocity {
-                linvel: Vec2::new(SCROLL_SPEED, 0.0),
-                angvel: 0.0,
-            })
-            .insert(Obstacle);
+    // Bottom Obstacle
+    commands
+        .spawn()
+        .insert_bundle(SpriteBundle {
+            sprite: Sprite {
+                //  flip_y: true,
+                custom_size: Some(Vec2::new(OBSTACLE_WIDTH * 2.0, 300.0)),
+                anchor: Anchor::BottomCenter,
+                ..default()
+            },
+            // Bottom Collider Transform
+            transform: Transform::from_xyz(400.0, -500.0 + offset, 0.0),
+            texture: asset_server.load(texture_path.join("obstacle3.png")),
+            ..default()
+        })
+        // Top Obstacle Extension
+        .with_children(|children| {
+            children.spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    flip_y: true,
+                    custom_size: Some(Vec2::new(
+                        OBSTACLE_WIDTH * 1.6,
+                        OBSTACLE_WIDTH * 3.2,
+                    )),
+                    ..default()
+                },
+                texture: asset_server.load(texture_path.join("obstacle2.png")),
+                transform: Transform::from_xyz(0.0, 70.0, 0.0),
+                ..default()
+            });
+        })
+        .insert(RigidBody::KinematicVelocityBased)
+        .insert(Collider::cuboid(OBSTACLE_WIDTH, 300.0))
+        .insert(Velocity {
+            linvel: Vec2::new(SCROLL_SPEED, 0.0),
+            angvel: 0.0,
+        })
+        .insert(Obstacle);
     }
 }
 

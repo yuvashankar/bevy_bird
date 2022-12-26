@@ -576,7 +576,6 @@ fn display_intersection_info(
     }
 }
 
-
 fn detect_collision(
     mut game_over: ResMut<GameOver>,
     mut collision_event: EventReader<CollisionEvent>,

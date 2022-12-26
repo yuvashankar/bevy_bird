@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::*;
 
 pub const HEIGHT: f32 = 1000.0;
 pub const WIDTH: f32 = 1000.0;
-
+pub const LAUNCHER_TITLE: &str = "Bevy Bird";
 pub const OBSTACLE_WIDTH: f32 = 50.0;
 pub const SCROLL_SPEED: f32 = -100.0;
 pub const IMPULSE: f32 = 25000.0;
@@ -14,7 +14,7 @@ pub const GRAVITY_SCALE: f32 = 10.0;
 pub fn app() -> App {
     let mut app = App::new();
     app.insert_resource(WindowDescriptor {
-        title: "Bevy Bird".to_string(),
+        title: LAUNCHER_TITLE.to_string(),
         width: WIDTH,
         height: HEIGHT,
         ..Default::default()
@@ -37,7 +37,7 @@ struct Player(f32);
 #[derive(Component)]
 struct Obstacle;
 
-fn setup_graphics(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_graphics(mut commands: Commands,) {
     commands.spawn_bundle(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 20.0, 0.0),
         ..default()

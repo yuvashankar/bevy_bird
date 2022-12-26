@@ -82,7 +82,7 @@ fn spawn_ostacles(mut commands: Commands) {
         .insert(Obstacle);
 }
 
-fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_player(mut commands: Commands) {
     commands.spawn();
 
     let sprite_size = 100.0;
